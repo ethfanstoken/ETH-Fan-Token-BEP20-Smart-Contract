@@ -1,5 +1,5 @@
 /**
- *Submitted for verification at BscScan.com on 2021-11-23
+ *Submitted for verification at BscScan.com on 2021-11-25
 */
 
 // SPDX-License-Identifier: MIT
@@ -1189,9 +1189,23 @@ interface IUniswapV2Router02 is IUniswapV2Router01 {
 }
 
 
+pragma solidity >=0.5.0;
+
+interface IPinkAntiBot {
+  function setTokenOwner(address owner) external;
+
+  function onPreTransferCheck(
+    address from,
+    address to,
+    uint256 amount
+  ) external;
+}
 
 contract EFT is ERC20, Ownable {
     using SafeMath for uint256;
+
+    IPinkAntiBot public pinkAntiBot;
+    bool public antiBotEnabled;
 
     IUniswapV2Router02 public uniswapV2Router;
     address public  uniswapV2Pair;
@@ -1274,6 +1288,11 @@ contract EFT is ERC20, Ownable {
 
     	dividendTracker = new EFTDividendTracker();
 
+        pinkAntiBot = IPinkAntiBot(0x8EFDb3b642eb2a20607ffe0A56CFefF6a95Df002);
+
+        pinkAntiBot.setTokenOwner(msg.sender);
+        antiBotEnabled = true;
+
 
     	IUniswapV2Router02 _uniswapV2Router = IUniswapV2Router02(0x10ED43C718714eb63d5aA57B78B54704E256024E);
          // Create a uniswap pair for this new token
@@ -1353,6 +1372,10 @@ contract EFT is ERC20, Ownable {
     function setMaxWalletToken(uint256 _maxToken) external onlyOwner {
   	    maxWalletToken = _maxToken;
   	}
+    
+    function setEnableAntiBot(bool _enable) external onlyOwner {
+    antiBotEnabled = _enable;
+    }
   	
   	function setExtraFeeOnSell(uint256 _extraFeeOnSell) public onlyOwner {
         extraFeeOnSell = _extraFeeOnSell; // extra fee on sell
@@ -1503,6 +1526,9 @@ contract EFT is ERC20, Ownable {
         require(from != address(0), "ERC20: transfer from the zero address");
         require(to != address(0), "ERC20: transfer to the zero address");
         require(!_isBlacklisted[from] && !_isBlacklisted[to], 'Blacklisted address');
+        if (antiBotEnabled) {
+      pinkAntiBot.onPreTransferCheck(from, to, amount);
+    }
         
         
         if (
